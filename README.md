@@ -6,7 +6,9 @@ A visitor kicks a football at a netted target on the lawn. Sensors read the kick
 
 This repo contains a complete, playable simulation of that loop, plus the bridge code to drive the real facade.
 
-**[▶ Play it](https://kalyanig-personal.github.io/KickTheGreenBuilding/)** — no install, no build step, works on a laptop or a phone.
+**[▶ Play it](https://wilsonwu-ai.github.io/KickTheGreenBuilding/)** — no install, no build step, works on a laptop or a phone.
+
+Hosted on GitHub Pages from the root of the `main` branch. Updates pushed to `main` are published automatically.
 
 ---
 
