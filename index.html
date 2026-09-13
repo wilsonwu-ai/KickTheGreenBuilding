@@ -1,0 +1,1427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0A0C0B">
+<meta name="description" content="Kick a ball, and MIT's Green Building answers across all 153 of its windows. A Physical AI demo built to the real 9x17 d54 display spec.">
+<meta property="og:title" content="Kick the Green Building">
+<meta property="og:description" content="Physical force in, 153 windows out. A playable simulation of MIT Building 54's LED facade.">
+<title>Kick the Green Building</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+:root{
+  --pitch:#0A0C0B;
+  --concrete:#141816;
+  --concrete-hi:#1D2320;
+  --rebar:#2F3833;
+  --rebar-lit:#485349;
+  --chalk:#E9EFE7;
+  --dim:#909E92;
+  --faint:#5D6A61;
+  --sodium:#FFB347;
+  --sodium-deep:#C2690F;
+  --magenta:#FF3D8B;
+  --cyan:#3DE0D0;
+  --good:#6EE7A8;
+  --warn:#FFC857;
+  --crit:#FF5E5B;
+  --display:"Archivo Black",Impact,"Haettenschweiler","Arial Black",sans-serif;
+  --body:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--pitch);color:var(--chalk);
+  font-family:var(--body);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:18px;padding-block:18px 44px}
+
+/* ---------- header ---------- */
+.masthead{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 22px;
+  border-bottom:1px solid var(--rebar);padding-bottom:14px;margin-bottom:18px;
+}
+.wordmark{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wordmark h1{
+  font-family:var(--display);font-size:clamp(21px,4.2vw,34px);line-height:.96;
+  margin:0;letter-spacing:-.015em;text-wrap:balance;
+}
+.wordmark h1 em{font-style:normal;color:var(--sodium)}
+.spec{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--faint);display:flex;flex-wrap:wrap;gap:4px 10px;
+}
+.spec b{color:var(--dim);font-weight:500}
+.modes{display:flex;gap:0;margin-left:auto;border:1px solid var(--rebar);border-radius:2px;overflow:hidden}
+.modes button{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  background:transparent;color:var(--dim);border:0;border-right:1px solid var(--rebar);
+  padding:8px 12px;cursor:pointer;white-space:nowrap;
+}
+.modes button:last-child{border-right:0}
+.modes button[aria-pressed="true"]{background:var(--sodium);color:#140E04;font-weight:700}
+.modes button:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+/* ---------- layout ---------- */
+.stage{display:grid;grid-template-columns:minmax(228px,318px) 1fr;gap:18px;align-items:start}
+@media (max-width:880px){.stage{grid-template-columns:1fr}}
+.rail{display:flex;flex-direction:column;gap:14px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px;align-items:start}
+
+.panel{
+  background:var(--concrete);border:1px solid var(--rebar);border-radius:3px;
+  padding:14px;display:flex;flex-direction:column;gap:11px;min-width:0;
+}
+.panel.flush{padding:0;overflow:hidden}
+.plabel{
+  font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.plabel .tag{color:var(--sodium)}
+
+/* ---------- building ---------- */
+.facade{position:relative;background:#070908;display:flex;justify-content:center}
+#bldg{display:block;max-width:100%}
+.marquee{
+  border-top:1px solid var(--rebar);padding:9px 12px;display:flex;justify-content:space-between;
+  gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  background:var(--concrete);
+}
+.mood{color:var(--sodium);font-weight:700}
+.mood[data-m="0"]{color:var(--faint)}
+.mood[data-m="1"]{color:var(--dim)}
+.mood[data-m="2"]{color:var(--warn)}
+.mood[data-m="3"]{color:var(--sodium)}
+.mood[data-m="4"]{color:var(--magenta)}
+
+/* ---------- kick control ---------- */
+.pad{
+  position:relative;height:190px;border:1px solid var(--rebar);border-radius:2px;
+  background:
+    repeating-linear-gradient(90deg,rgba(233,239,231,.03) 0 1px,transparent 1px 44px),
+    linear-gradient(180deg,#141917,#0D1110);
+  overflow:hidden;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;
+}
+.pad:active{border-color:var(--sodium)}
+.padhint{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:7px;text-align:center;padding:14px;pointer-events:none;
+}
+.padhint .big{font-family:var(--display);font-size:clamp(20px,5vw,30px);letter-spacing:-.01em;line-height:1}
+.padhint .sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);max-width:52ch;line-height:1.6}
+.goal{position:absolute;left:6%;right:6%;top:16px;bottom:44px;border:1px dashed var(--rebar-lit);border-radius:2px}
+.goal::after{content:"TARGET";position:absolute;top:4px;left:6px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--faint)}
+.meter{position:absolute;left:6%;right:6%;bottom:14px;height:16px;border:1px solid var(--rebar-lit);background:#0A0D0C}
+.meter i{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--sodium);display:block}
+.reticle{position:absolute;top:16px;bottom:44px;width:3px;background:var(--cyan);left:50%;box-shadow:0 0 12px var(--cyan);display:none}
+.pad[data-stage="aim"] .reticle{display:block}
+.sweetspot{position:absolute;top:16px;bottom:44px;width:14%;left:43%;background:rgba(255,179,71,.13);border-left:1px solid rgba(255,179,71,.5);border-right:1px solid rgba(255,179,71,.5);display:none}
+.pad[data-stage="aim"] .sweetspot{display:block}
+
+.inputs{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  background:transparent;border:1px solid var(--rebar);color:var(--dim);padding:6px 9px;border-radius:2px;cursor:pointer;
+}
+.chip[aria-pressed="true"]{border-color:var(--sodium);color:var(--sodium)}
+.chip[disabled]{opacity:.4;cursor:not-allowed}
+
+/* ---------- telemetry ---------- */
+.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rebar)}
+.readout div{background:var(--concrete-hi);padding:10px 9px;display:flex;flex-direction:column;gap:3px}
+.readout .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.readout .v{font-family:var(--mono);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.readout .v small{font-size:10px;font-weight:400;color:var(--dim);margin-left:2px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:58px 1fr 42px;align-items:center;gap:9px}
+.bar .bk{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.bar .track{height:9px;background:#0C100E;border:1px solid var(--rebar);position:relative;overflow:hidden}
+.bar .fill{position:absolute;inset:0 auto 0 0;width:0%;transition:width .5s cubic-bezier(.2,.8,.25,1)}
+.bar .bv{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;text-align:right;color:var(--dim)}
+.fill.power{background:linear-gradient(90deg,var(--sodium-deep),var(--sodium))}
+.fill.acc{background:linear-gradient(90deg,#1C8C80,var(--cyan))}
+.fill.score{background:linear-gradient(90deg,var(--sodium),var(--magenta))}
+
+.verdict{
+  border-left:2px solid var(--sodium);padding:10px 0 10px 13px;min-height:66px;
+  display:flex;flex-direction:column;gap:6px;justify-content:center;
+}
+.verdict .say{font-family:var(--display);font-size:clamp(15px,2.4vw,20px);line-height:1.16;text-wrap:balance}
+.verdict .note{color:var(--dim);font-size:13px;text-wrap:pretty}
+.verdict[data-band="4"]{border-color:var(--magenta)}
+.verdict[data-band="0"]{border-color:var(--rebar-lit)}
+
+/* ---------- floors ---------- */
+.floors{display:flex;flex-direction:column-reverse;gap:2px}
+.floorrow{display:grid;grid-template-columns:26px 1fr;align-items:center;gap:8px}
+.floorrow .fn{font-family:var(--mono);font-size:9.5px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+.floorrow .fb{height:7px;background:#0C100E;border:1px solid var(--rebar);position:relative}
+.floorrow.on .fb{background:var(--sodium-deep);border-color:var(--sodium)}
+.floorrow.you .fn{color:var(--sodium);font-weight:700}
+.floorrow.you .fb{background:var(--sodium)}
+
+/* ---------- leaderboard ---------- */
+table.lb{width:100%;border-collapse:collapse;table-layout:fixed;font-family:var(--mono);font-size:12px}
+table.lb td{padding:5px 0;border-bottom:1px solid #1E2421;font-variant-numeric:tabular-nums}
+table.lb tr:last-child td{border-bottom:0}
+table.lb .rk{width:24px;color:var(--faint)}
+table.lb .nm{color:var(--chalk);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.lb .sc{text-align:right;width:40px;font-weight:700;color:var(--sodium)}
+table.lb tr.me .nm{color:var(--cyan)}
+.record{
+  display:flex;align-items:baseline;gap:10px;padding:10px 12px;background:#0E1211;border:1px solid var(--rebar);
+}
+.record .num{font-family:var(--display);font-size:30px;line-height:1;color:var(--magenta);font-variant-numeric:tabular-nums}
+.record .cap{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.record.beaten .num{color:var(--good)}
+
+/* ---------- join / qr ---------- */
+.join{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.qr{width:104px;height:104px;background:#fff;padding:6px;border-radius:2px;flex:none;display:grid;place-items:center}
+.qr canvas,.qr img{width:100%!important;height:100%!important;display:block}
+.peers{display:flex;flex-wrap:wrap;gap:5px}
+.peer{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:4px 7px;border:1px solid var(--rebar);border-radius:2px;color:var(--dim)}
+.peer.live{border-color:var(--good);color:var(--good)}
+
+/* ---------- wire monitor ---------- */
+.wire{font-family:var(--mono);font-size:10px;line-height:1.5;color:var(--faint);background:#080A09;border:1px solid var(--rebar);padding:9px;overflow-x:auto;white-space:pre;border-radius:2px}
+.wire b{color:var(--cyan);font-weight:400}
+.wirestat{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.wirestat b{color:var(--dim);font-weight:500}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--crit);margin-right:5px;vertical-align:middle}
+.dot.on{background:var(--good)}
+
+details.tech{background:var(--concrete);border:1px solid var(--rebar);border-radius:3px}
+details.tech summary{
+  cursor:pointer;padding:12px 14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--dim);list-style:none;display:flex;justify-content:space-between;gap:10px;
+}
+details.tech summary::-webkit-details-marker{display:none}
+details.tech summary::after{content:"+";color:var(--sodium)}
+details.tech[open] summary::after{content:"–"}
+details.tech .inner{padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
+details.tech p{margin:0;color:var(--dim);font-size:13px;max-width:68ch;text-wrap:pretty}
+details.tech h4{margin:0;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--sodium);font-weight:500}
+pre.code{
+  margin:0;font-family:var(--mono);font-size:11px;line-height:1.55;color:#C3CFC5;background:#080A09;
+  border:1px solid var(--rebar);border-radius:2px;padding:11px;overflow-x:auto;
+}
+pre.code .c{color:var(--faint)}
+pre.code .kw{color:var(--magenta)}
+pre.code .s{color:var(--sodium)}
+.flow{font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--dim);overflow-x:auto;white-space:pre;margin:0}
+.flow b{color:var(--sodium);font-weight:400}
+
+.calibrow{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);
+}
+.calibrow input{
+  width:58px;background:#0C100E;border:1px solid var(--rebar);color:var(--sodium);
+  font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 6px;border-radius:2px;text-align:center;
+}
+.namefield{display:flex;gap:7px;align-items:center}
+.namefield input{
+  flex:1;min-width:0;background:#0C100E;border:1px solid var(--rebar);color:var(--chalk);
+  font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:7px 9px;border-radius:2px;
+}
+.btn{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  background:var(--sodium);color:#140E04;border:0;padding:8px 12px;border-radius:2px;cursor:pointer;
+}
+.btn.ghost{background:transparent;border:1px solid var(--rebar);color:var(--dim);font-weight:500}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+.hidden{display:none!important}
+.foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--rebar);color:var(--faint);font-size:12px;max-width:78ch;text-wrap:pretty}
+.foot a{color:var(--dim)}
+@media (prefers-reduced-motion:reduce){.bar .fill{transition:none}}
+</style>
+<style>
+/* standalone reset — the hosted build gets this from its page wrapper */
+html{color-scheme:dark}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div class="wordmark">
+      <h1>KICK THE <em>GREEN BUILDING</em></h1>
+      <div class="spec">
+        <span>MIT BLDG <b>54</b></span><span>·</span>
+        <span><b>153</b> WINDOWS</span><span>·</span>
+        <span><b>9 × 17</b> GRID</span><span>·</span>
+        <span><b>24-BIT</b> RGB</span><span>·</span>
+        <span><b>15</b> FPS MAX</span>
+      </div>
+    </div>
+    <div class="modes" role="group" aria-label="Mode">
+      <button id="m-arcade" aria-pressed="true">Arcade</button>
+      <button id="m-display" aria-pressed="false">Building</button>
+      <button id="m-phone" aria-pressed="false">Controller</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <!-- ====== LEFT: the building ====== -->
+    <div class="rail">
+      <section class="panel flush" id="p-facade">
+        <div class="facade"><canvas id="bldg" width="392" height="1184" aria-label="Live simulation of the MIT Green Building's 153 controllable windows"></canvas></div>
+        <div class="marquee">
+          <span>STATE <span class="mood" id="moodTag" data-m="0">DORMANT</span></span>
+          <span id="litTag">0 / 153 LIT</span>
+        </div>
+      </section>
+
+      <section class="panel" id="p-floors">
+        <div class="plabel"><span>Floors powered</span><span class="tag" id="floorTag">0 / 21</span></div>
+        <div class="floors" id="floors"></div>
+      </section>
+    </div>
+
+    <!-- ====== RIGHT: everything else ====== -->
+    <div class="rail">
+
+      <section class="panel" id="p-kick">
+        <div class="plabel"><span>Kick control</span><span class="tag" id="stageTag">READY</span></div>
+        <div class="pad" id="pad" data-stage="idle" tabindex="0" role="button" aria-label="Kick pad. Hold to charge, release to kick.">
+          <div class="goal"></div>
+          <div class="sweetspot"></div>
+          <div class="reticle" id="reticle"></div>
+          <div class="meter"><i id="meterFill"></i></div>
+          <div class="padhint" id="padhint">
+            <span class="big" id="padBig">HOLD TO CHARGE</span>
+            <span class="sub" id="padSub">Press and hold anywhere · release at peak power · then stop the reticle on target</span>
+          </div>
+        </div>
+        <div class="inputs">
+          <button class="chip" id="in-charge" aria-pressed="true">Charge meter</button>
+          <button class="chip" id="in-flick" aria-pressed="false">Flick</button>
+          <button class="chip" id="in-motion" aria-pressed="false">Swing phone</button>
+          <button class="chip" id="aiChip" aria-pressed="false">AI commentary</button>
+        </div>
+        <div class="calibrow">
+          <label for="calibIn">Full power =</label>
+          <input id="calibIn" type="number" min="8" max="60" step="1" value="30" inputmode="numeric">
+          <span>m/s · set this from a radar reading</span>
+        </div>
+        <div class="namefield">
+          <input id="pname" maxlength="10" placeholder="YOUR NAME" value="" autocomplete="off" spellcheck="false">
+          <button class="btn ghost" id="resetBtn">Reset</button>
+        </div>
+      </section>
+
+      <section class="panel" id="p-verdict">
+        <div class="plabel"><span>Building response</span><span class="tag" id="kickNo">KICK 0</span></div>
+        <div class="verdict" id="verdict" data-band="0" aria-live="polite">
+          <span class="say" id="vSay">The building is asleep.</span>
+          <span class="note" id="vNote">153 windows, 21 stories, and nothing to react to yet. Take a kick.</span>
+        </div>
+        <div class="readout">
+          <div><span class="k">Est. ball speed</span><span class="v" id="rSpeed">0.0<small>m/s</small></span></div>
+          <div><span class="k">Impact column</span><span class="v" id="rCol">—</span></div>
+          <div><span class="k">Reaction</span><span class="v" id="rTime">—<small>ms</small></span></div>
+        </div>
+        <div class="bars">
+          <div class="bar"><span class="bk">Power</span><span class="track"><i class="fill power" id="bPower"></i></span><span class="bv" id="vPower">0%</span></div>
+          <div class="bar"><span class="bk">Accuracy</span><span class="track"><i class="fill acc" id="bAcc"></i></span><span class="bv" id="vAcc">0%</span></div>
+          <div class="bar"><span class="bk">Score</span><span class="track"><i class="fill score" id="bScore"></i></span><span class="bv" id="vScore">0</span></div>
+        </div>
+      </section>
+
+      <div class="cols">
+        <section class="panel" id="p-record">
+          <div class="plabel"><span>Today's building challenge</span><span class="tag" id="dayTag"></span></div>
+          <div class="record" id="record">
+            <span class="num" id="recNum">—</span>
+            <span class="cap" id="recCap">Building record<br>unbeaten today</span>
+          </div>
+          <p style="margin:0;color:var(--dim);font-size:12.5px;text-wrap:pretty">Every day the building sets its own score. You are not playing a football game — you are playing against the building.</p>
+        </section>
+
+        <section class="panel" id="p-lb">
+          <div class="plabel"><span>Leaderboard</span><span class="tag" id="lbSrc">LOCAL</span></div>
+          <table class="lb"><tbody id="lbBody">
+            <tr><td class="rk">—</td><td class="nm" style="color:var(--faint)">No kicks yet today</td><td class="sc"></td></tr>
+          </tbody></table>
+        </section>
+      </div>
+
+      <section class="panel" id="p-join">
+        <div class="plabel"><span>Phone as controller</span><span class="tag" id="roomTag"><span class="dot"></span>OFFLINE</span></div>
+        <div class="join">
+          <div class="qr" id="qr"></div>
+          <div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px">
+            <p style="margin:0;font-size:13px;color:var(--dim);text-wrap:pretty">Scan to open this page on a phone, switch it to <b style="color:var(--chalk)">Controller</b>, and kick. Scores land here live.</p>
+            <div class="peers" id="peers"><span class="peer">no controllers connected</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="p-wire">
+        <div class="plabel"><span>Wire monitor · d54 output</span><span class="tag" id="wireTag">IDLE</span></div>
+        <div class="wirestat">
+          <span>FPS <b id="wFps">15</b></span>
+          <span>FRAME <b id="wFrame">0</b></span>
+          <span>BYTES/FRAME <b>459</b></span>
+          <span>CAPTURE <b id="wCap">0</b></span>
+        </div>
+        <div class="wire" id="wireOut">waiting for first frame…</div>
+        <div class="inputs">
+          <button class="chip" id="dlFrames">Export last kick (.ndjson)</button>
+          <button class="chip" id="clearCap">Clear capture</button>
+        </div>
+      </section>
+
+      <details class="tech">
+        <summary><span>How this would actually run on Building 54</span></summary>
+        <div class="inner">
+          <h4>Signal chain</h4>
+          <pre class="flow">  PERSON
+    │
+ ⚽ KICK
+    │
+    ▼
+<b>[ SENSOR ]</b>  phone IMU · radar gun · instrumented target
+    │  ball velocity, impact point, swing straightness
+    ▼
+<b>[ SCORING ]</b>  power × accuracy × timing → 0–100
+    │
+    ▼
+<b>[ INTERPRETER ]</b>  history + imbalance + building mood → reaction
+    │
+    ▼
+<b>[ RENDERER ]</b>  9 × 17 × RGB frame buffer @ 15 fps
+    │
+    ▼
+<b>[ d54 BRIDGE ]</b>  DisplayPlugin.loop() → setPixel()
+    │
+    ▼
+<b>153 WINDOWS</b></pre>
+
+          <h4>What we claim we measure</h4>
+          <p>We do <strong style="color:var(--chalk)">not</strong> claim to measure kick force. A football leaving a foot carries force we never see. What is honestly measurable with cheap hardware is <em>ball velocity</em> and <em>impact location</em> — a radar module or a 120 fps camera gives both. Real impact force needs an instrumented target: a piezo or load-cell backing board. The scoring model here takes velocity and impact point as ground truth and calls power an <em>estimate</em>, with a calibration constant you set against a radar reading. Say that out loud in the demo; it is the difference between a toy and a prototype.</p>
+
+          <h4>Display driver (d54 plugin interface)</h4>
+          <pre class="code"><span class="c">// 153 windows = 9 cols x 17 rows, 24-bit, 15 fps ceiling.</span>
+<span class="kw">public class</span> KickPlugin <span class="kw">extends</span> DisplayPlugin {
+  <span class="kw">private final</span> FrameQueue q; <span class="c">// fed by the scoring service</span>
+
+  <span class="kw">public</span> KickPlugin(Display2D d, <span class="kw">double</span> framerate) {
+    <span class="kw">super</span>(d, framerate);
+    q = FrameQueue.subscribe(<span class="s">"ws://scoring.local/frames"</span>);
+  }
+
+  <span class="kw">public void</span> loop() {
+    Frame f = q.poll();               <span class="c">// 459 bytes: 153 x RGB</span>
+    <span class="kw">if</span> (f == <span class="kw">null</span>) <span class="kw">return</span>;
+    <span class="kw">for</span> (<span class="kw">int</span> y = <span class="s">0</span>; y &lt; <span class="s">17</span>; y++)
+      <span class="kw">for</span> (<span class="kw">int</span> x = <span class="s">0</span>; x &lt; <span class="s">9</span>; x++)
+        getDisplay().setPixel(x, y, f.rgb(x, y));
+  }
+}</pre>
+
+          <h4>Frame format on the wire</h4>
+          <p>Every frame this page generates is emitted in the exact shape the bridge expects, and the wire monitor above shows them live. Row 0 is floor 18; row 16 is floor 2 — the first floor has no lights. Export a kick and you have a replay file you can pipe straight at the building or at the Java preview window.</p>
+
+          <h4>Safety and approvals, honestly</h4>
+          <p>Nobody kicks toward the building. The target is a netted rebound goal facing away from the facade, on the Great Sail lawn — the same spot the 2012 Tetris controller sat, about 70 m out. The facade is the <em>output</em>; the ball never goes near it. That framing is what makes the approval conversation short.</p>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+  <p class="foot">Simulation of the permanent LED installation hacked into the Green Building in April 2012: 153 wirelessly controlled RGB lights, one in every window above the first floor, 9 across and 17 up. The building is 18 floors and 277 ft, which MIT counts as 21 stories — the floor meter uses stories, the window grid uses lit floors. Ball speed is an estimate derived from input intensity, not a radar measurement.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. CONSTANTS — the real display
+   ============================================================ */
+const COLS = 9, ROWS = 17, NWIN = COLS * ROWS;   // 153
+const FPS = 15;                                   // d54 ceiling
+const STORIES = 21;                               // MIT's own count
+const FRAME_MS = 1000 / FPS;
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const mapRange = (v, a, b, c, d) => clamp((v - a) / (b - a), 0, 1) * (d - c) + c;
+
+/* ============================================================
+   1. FRAME BUFFER + BUILDING RENDERER
+   ============================================================ */
+const buf = new Float32Array(NWIN * 3);            // linear 0..1 RGB
+const idx = (r, c) => (r * COLS + c) * 3;
+function addPx(r, c, cr, cg, cb, a){
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS || a <= 0) return;
+  const i = idx(r, c);
+  buf[i]   = Math.min(1, buf[i]   + cr * a);
+  buf[i+1] = Math.min(1, buf[i+1] + cg * a);
+  buf[i+2] = Math.min(1, buf[i+2] + cb * a);
+}
+
+// Real facade geometry, in feet. 6x8 ft windows; 80 ft wide, ~250 ft of grid.
+const G = {
+  rail: 13, padR: 5,
+  winW: 6, winH: 8,
+  pitchX: 80 / COLS,            // 8.89
+  pitchY: 250 / ROWS,           // 14.71
+  roof: 15, lobby: 24, plinth: 9
+};
+G.faceW = 80;
+G.faceH = G.pitchY * ROWS;
+G.totalW = G.rail + G.faceW + G.padR;
+G.totalH = G.roof + G.faceH + G.lobby + G.plinth;
+
+const cv = $("bldg"), cx = cv.getContext("2d");
+let DPR = 1, S = 1, OX = 0, OY = 0;
+
+function sizeCanvas(){
+  const host = cv.parentElement;
+  const availW = (host && host.clientWidth) || 340;
+  const maxH = Math.max(320, Math.min(window.innerHeight * 0.76, 780));
+  let cssW = availW, cssH = cssW * (G.totalH / G.totalW);
+  if (cssH > maxH){ cssH = maxH; cssW = cssH * (G.totalW / G.totalH); }
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width  = Math.round(cssW * DPR);
+  cv.height = Math.round(cssH * DPR);
+  cv.style.width = cssW + "px";
+  cv.style.height = cssH + "px";
+  S = (cssW * DPR) / G.totalW;
+  OX = 0; OY = 0;
+}
+const fx = (v) => OX + v * S, fy = (v) => OY + v * S;
+
+function winRect(r, c){
+  const x = G.rail + c * G.pitchX + (G.pitchX - G.winW) / 2;
+  const y = G.roof + r * G.pitchY + (G.pitchY - G.winH) / 2;
+  return [fx(x), fy(y), G.winW * S, G.winH * S];
+}
+
+function drawBuilding(){
+  const W = cv.width, H = cv.height;
+  cx.globalCompositeOperation = "source-over";
+  cx.fillStyle = "#070908";
+  cx.fillRect(0, 0, W, H);
+
+  // ambient sky wash behind the tower, tinted by total output
+  let tot = 0;
+  for (let i = 0; i < buf.length; i++) tot += buf[i];
+  const glowAmt = clamp(tot / (NWIN * 1.6), 0, 1);
+  if (glowAmt > 0.01){
+    const g = cx.createRadialGradient(W*0.5, H*0.42, 0, W*0.5, H*0.42, W*1.05);
+    g.addColorStop(0, `rgba(255,150,60,${0.16 * glowAmt})`);
+    g.addColorStop(1, "rgba(255,150,60,0)");
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  }
+
+  // concrete slab
+  const bx = fx(G.rail), bw = G.faceW * S;
+  const by = fy(0), bh = (G.roof + G.faceH + G.lobby) * S;
+  const cg = cx.createLinearGradient(bx, 0, bx + bw, 0);
+  cg.addColorStop(0, "#171B19"); cg.addColorStop(0.42, "#20251F"); cg.addColorStop(1, "#121614");
+  cx.fillStyle = cg; cx.fillRect(bx, by, bw, bh);
+
+  // vertical pilasters between window columns (Pei's concrete ribs)
+  cx.fillStyle = "rgba(0,0,0,.30)";
+  for (let c = 0; c <= COLS; c++){
+    const x = fx(G.rail + c * G.pitchX - 0.8);
+    cx.fillRect(x, by, Math.max(1, 1.5 * S), bh);
+  }
+  // roof cap
+  cx.fillStyle = "#0D110F";
+  cx.fillRect(bx - 1.5 * S, by, bw + 3 * S, G.roof * 0.42 * S);
+  // lobby band (unlit — no lights on the first floor)
+  const ly = fy(G.roof + G.faceH);
+  cx.fillStyle = "#0E1210"; cx.fillRect(bx, ly, bw, G.lobby * S);
+  cx.fillStyle = "rgba(120,140,120,.10)";
+  for (let c = 0; c < COLS; c++){
+    const x = fx(G.rail + c * G.pitchX + (G.pitchX - G.winW) / 2);
+    cx.fillRect(x, ly + 7 * S, G.winW * S, 10 * S);
+  }
+  // plinth / ground
+  cx.fillStyle = "#080A09";
+  cx.fillRect(0, fy(G.roof + G.faceH + G.lobby), cv.width, G.plinth * S);
+
+  // dark window glass (unlit state)
+  cx.fillStyle = "#0A0E0C";
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
+    const [x, y, w, h] = winRect(r, c);
+    cx.fillRect(x, y, w, h);
+  }
+
+  // ---- lit windows: glow pass then core pass
+  cx.globalCompositeOperation = "lighter";
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
+    const i = idx(r, c);
+    const R = buf[i], Gc = buf[i+1], B = buf[i+2];
+    const v = Math.max(R, Gc, B);
+    if (v < 0.015) continue;
+    const [x, y, w, h] = winRect(r, c);
+    const ccx = x + w/2, ccy = y + h/2;
+    const rad = Math.max(w, h) * (1.4 + v * 2.4);
+    const gr = cx.createRadialGradient(ccx, ccy, 0, ccx, ccy, rad);
+    const a = 0.40 * v;
+    gr.addColorStop(0, `rgba(${(R*255)|0},${(Gc*255)|0},${(B*255)|0},${a})`);
+    gr.addColorStop(0.45, `rgba(${(R*255)|0},${(Gc*255)|0},${(B*255)|0},${a*0.32})`);
+    gr.addColorStop(1, "rgba(0,0,0,0)");
+    cx.fillStyle = gr;
+    cx.fillRect(ccx - rad, ccy - rad, rad*2, rad*2);
+  }
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
+    const i = idx(r, c);
+    const R = buf[i], Gc = buf[i+1], B = buf[i+2];
+    if (Math.max(R, Gc, B) < 0.015) continue;
+    const [x, y, w, h] = winRect(r, c);
+    const k = 0.35 + 0.65 * Math.max(R, Gc, B);
+    cx.fillStyle = `rgba(${(R*255)|0},${(Gc*255)|0},${(B*255)|0},${k})`;
+    cx.fillRect(x, y, w, h);
+  }
+  cx.globalCompositeOperation = "source-over";
+
+  // ---- floor rail
+  const fs = 9.5 * DPR;                          // keep the rail legible at any tower width
+  const tickH = Math.max(1, DPR);
+  cx.font = `500 ${fs}px "JetBrains Mono", ui-monospace, monospace`;
+  cx.textAlign = "right"; cx.textBaseline = "middle";
+  for (let r = 0; r < ROWS; r++){
+    const floor = 18 - r;                        // row 0 = floor 18
+    const y = fy(G.roof + r * G.pitchY + G.pitchY/2);
+    let m = 0;
+    for (let c = 0; c < COLS; c++) m = Math.max(m, buf[idx(r,c)], buf[idx(r,c)+1], buf[idx(r,c)+2]);
+    cx.fillStyle = m > 0.1 ? "rgba(255,179,71,.95)" : "rgba(93,106,97,.55)";
+    cx.fillText(String(floor), fx(G.rail - 4.4), y);
+    cx.fillRect(fx(G.rail - 3.4), y - tickH/2, 2.4 * S, tickH);
+  }
+  cx.textAlign = "left";
+  cx.fillStyle = "rgba(93,106,97,.7)";
+  cx.font = `500 ${8 * DPR}px "JetBrains Mono", ui-monospace, monospace`;
+  cx.fillText("FL", fx(0.6), fy(G.roof * 0.55));
+}
+
+/* ============================================================
+   2. SCENE ENGINE — how the building answers
+   ============================================================ */
+const PAL = {
+  dormant: [0.55, 0.26, 0.06],
+  low:     [1.00, 0.45, 0.06],
+  mid:     [1.00, 0.70, 0.28],
+  high:    [1.00, 0.94, 0.78],
+  beam:    [0.24, 0.88, 0.82],
+  riot:    null // hue cycle
+};
+function hsv(h, s, v){
+  const i = Math.floor(h*6), f = h*6 - i, p = v*(1-s), q = v*(1-f*s), t = v*(1-(1-f)*s);
+  switch(i % 6){
+    case 0: return [v,t,p]; case 1: return [q,v,p]; case 2: return [p,v,t];
+    case 3: return [p,q,v]; case 4: return [t,p,v]; default: return [v,p,q];
+  }
+}
+function bandPal(band){
+  return band >= 4 ? PAL.high : band === 3 ? PAL.high : band === 2 ? PAL.mid : band === 1 ? PAL.low : PAL.dormant;
+}
+
+let mood = 0, moodEnergy = 0;
+let watermarkRow = 0, watermarkBand = 0;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// idle ambient: the building at rest — a few offices on, slow breathing
+const ambientSeed = [];
+for (let i = 0; i < 22; i++) ambientSeed.push({ r: (Math.random()*ROWS)|0, c: (Math.random()*COLS)|0, ph: Math.random()*Math.PI*2, sp: 0.4 + Math.random()*0.9 });
+
+function sceneIdle(t){
+  const breathe = 0.5 + 0.5 * Math.sin(t / 2600);
+  for (const a of ambientSeed){
+    const v = (0.05 + 0.07 * (0.5 + 0.5 * Math.sin(t/1000 * a.sp + a.ph))) * (reduceMotion ? 0.7 : 1);
+    addPx(a.r, a.c, 0.55, 0.30, 0.10, v * (0.6 + 0.4*breathe) * (1 + mood*0.35));
+  }
+  // watermark: your last score level, held on the facade
+  if (watermarkRow > 0){
+    const p = bandPal(watermarkBand);
+    for (let r = ROWS - 1; r >= ROWS - watermarkRow; r--){
+      const depth = (ROWS - r) / Math.max(1, watermarkRow);
+      addPx(r, 0, p[0], p[1], p[2], 0.055 * (1.15 - depth*0.5));
+      addPx(r, COLS-1, p[0], p[1], p[2], 0.055 * (1.15 - depth*0.5));
+    }
+  }
+  // building's own record line — a thin magenta ledge
+  if (state.record > 0){
+    const rr = ROWS - 1 - Math.round(state.record/100 * (ROWS-1));
+    for (let c = 0; c < COLS; c++) addPx(rr, c, 1.0, 0.24, 0.55, 0.035 + 0.02*Math.sin(t/700 + c));
+  }
+}
+
+function sceneImpact(u, K){
+  // ignition at the impact column, bottom two rows
+  const p = bandPal(K.band);
+  const spread = u * 3.2;
+  for (let c = 0; c < COLS; c++){
+    const d = Math.abs(c - K.col);
+    const a = clamp(1 - d / (0.9 + spread), 0, 1) * (1 - u*0.25);
+    addPx(ROWS-1, c, p[0], p[1], p[2], a);
+    addPx(ROWS-2, c, p[0], p[1], p[2], a * 0.6);
+    addPx(ROWS-3, c, p[0], p[1], p[2], a * 0.25);
+  }
+  const flash = Math.pow(1 - u, 3);
+  addPx(ROWS-1, K.col, 1, 1, 1, flash);
+}
+
+function sceneRise(u, K){
+  const p = bandPal(K.band);
+  const top = ROWS - K.rows;                     // highest row the energy reaches
+  const front = ROWS - 1 - u * (K.rows - 1);     // travelling front, in row space
+  const narrow = K.accuracy / 100;               // accurate kick = tight column
+  for (let r = ROWS - 1; r >= top; r--){
+    const d = r - front;
+    if (d > 0.9) continue;                       // not reached yet
+    const head = clamp(1 - Math.abs(d) / 1.5, 0, 1);
+    const tail = clamp(1 - (front - r) / (K.rows * 0.9), 0, 1) * 0.55;
+    for (let c = 0; c < COLS; c++){
+      const lat = Math.abs(c - K.col);
+      const width = lerp(4.5, 1.1, narrow);
+      const w = clamp(1 - lat / width, 0, 1);
+      addPx(r, c, p[0], p[1], p[2], (head * 0.95 + tail) * w);
+    }
+  }
+  if (front < ROWS) addPx(Math.round(front), K.col, 1, 1, 1, 0.5 * (1-u*0.4));
+}
+
+function sceneVerdict(u, K){
+  const p = bandPal(K.band);
+  const fade = u < 0.75 ? 1 : 1 - (u - 0.75) / 0.25;
+  const top = ROWS - K.rows;
+
+  if (K.band === 0){                             // barely noticed
+    for (let i = 0; i < 4; i++){
+      const r = ROWS - 1 - ((Math.sin(u*22 + i*2.1)*0.5+0.5) * 2 | 0);
+      const c = (K.col + i - 2 + COLS) % COLS;
+      addPx(r, c, p[0], p[1], p[2], 0.5 * fade * (0.5 + 0.5*Math.sin(u*30 + i)));
+    }
+    return;
+  }
+  if (K.style === "beam"){                       // clean strike: narrow beam to the roof
+    for (let r = ROWS-1; r >= 0; r--){
+      const reach = clamp((u * 1.4) * ROWS - (ROWS - 1 - r), 0, 1);
+      addPx(r, K.col, PAL.beam[0], PAL.beam[1], PAL.beam[2], reach * fade);
+      addPx(r, K.col-1, p[0], p[1], p[2], reach * 0.35 * fade);
+      addPx(r, K.col+1, p[0], p[1], p[2], reach * 0.35 * fade);
+    }
+    if (u > 0.55) for (let c = 0; c < COLS; c++) addPx(0, c, 1, 1, 1, (u-0.55)/0.45 * 0.8 * fade);
+    return;
+  }
+  if (K.style === "scatter"){                    // huge but wild
+    for (let r = ROWS-1; r >= top; r--){
+      for (let c = 0; c < COLS; c++){
+        const n = Math.sin(r*12.9898 + c*78.233 + Math.floor(u*14)*3.7);
+        const v = (n*0.5+0.5);
+        if (v > 0.55) addPx(r, c, p[0], p[1]*0.7, p[2]*0.4, (v-0.55)/0.45 * 0.9 * fade);
+      }
+    }
+    return;
+  }
+  if (K.style === "riot"){                       // 91+ : all 153 windows
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
+      const dist = Math.hypot((r - ROWS/2)/ROWS, (c - COLS/2)/COLS);
+      const ring = Math.sin(dist * 16 - u * 22);
+      const h = (u * 1.1 + dist * 0.8 + c * 0.02) % 1;
+      const col = hsv(h, 0.85, 1);
+      addPx(r, c, col[0], col[1], col[2], (0.35 + 0.65 * clamp(ring, 0, 1)) * fade);
+    }
+    return;
+  }
+  // default: wave band oscillating through the powered floors
+  const h = Math.max(2, K.rows * 0.5);
+  const centre = top + (Math.sin(u * Math.PI * 2.2) * 0.5 + 0.5) * (K.rows - h);
+  for (let r = 0; r < ROWS; r++){
+    const d = Math.abs(r - (centre + h/2));
+    const a = clamp(1 - d / (h/1.4), 0, 1);
+    if (a <= 0) continue;
+    for (let c = 0; c < COLS; c++) addPx(r, c, p[0], p[1], p[2], a * fade * 0.9);
+  }
+}
+
+function sceneSettle(u, K){
+  const p = bandPal(K.band);
+  const top = ROWS - K.rows;
+  for (let r = ROWS-1; r >= top; r--)
+    for (let c = 0; c < COLS; c++)
+      addPx(r, c, p[0], p[1], p[2], (1-u) * 0.55);
+}
+
+const TIMELINE = [
+  { fn: sceneImpact,  dur: 420 },
+  { fn: sceneRise,    dur: 1100 },
+  { fn: sceneVerdict, dur: 1500 },
+  { fn: sceneSettle,  dur: 800 }
+];
+let seq = null;
+
+function playReaction(K){
+  seq = { K, t0: performance.now(), i: 0 };
+  watermarkRow = K.rows; watermarkBand = K.band;
+  moodEnergy = clamp(moodEnergy + K.score / 90, 0, 4.4);
+}
+
+/* ============================================================
+   3. FRAME LOOP — generated at the building's real 15 fps
+   ============================================================ */
+let frameNo = 0, lastFrame = 0, capture = [], capturing = false;
+const wireOut = $("wireOut"), wFrame = $("wFrame"), wCap = $("wCap"), wireTag = $("wireTag");
+let wireThrottle = 0;
+
+function composeFrame(now){
+  buf.fill(0);
+  sceneIdle(now);
+  if (seq){
+    let t = now - seq.t0, i = 0;
+    while (i < TIMELINE.length && t > TIMELINE[i].dur){ t -= TIMELINE[i].dur; i++; }
+    if (i >= TIMELINE.length){ seq = null; capturing = false; wireTag.textContent = "IDLE"; }
+    else TIMELINE[i].fn(t / TIMELINE[i].dur, seq.K);
+  }
+}
+
+function toBytes(){
+  const b = new Uint8Array(NWIN * 3);
+  for (let i = 0; i < buf.length; i++) b[i] = Math.round(Math.pow(buf[i], 1/1.6) * 255);
+  return b;
+}
+function hex(bytes, n){
+  let s = "";
+  const lim = n == null ? bytes.length : Math.min(n, bytes.length);
+  for (let i = 0; i < lim; i++) s += bytes[i].toString(16).padStart(2, "0");
+  return s;
+}
+
+function tick(now){
+  requestAnimationFrame(tick);
+  if (now - lastFrame < FRAME_MS) return;
+  lastFrame = now;
+  composeFrame(now);
+  drawBuilding();
+  frameNo++;
+
+  const bytes = toBytes();
+  if (capturing){
+    capture.push('{"t":' + Math.round(now - (seq ? seq.t0 : now)) + ',"w":9,"h":17,"fps":15,"rgb":"' + hex(bytes) + '"}');
+    if (capture.length > 400) capturing = false;
+  }
+  if (now - wireThrottle > 200){
+    wireThrottle = now;
+    let lit = 0;
+    for (let i = 0; i < NWIN; i++) if (bytes[i*3] + bytes[i*3+1] + bytes[i*3+2] > 24) lit++;
+    wireOut.innerHTML =
+      '{ "t": <b>' + frameNo + '</b>, "w": 9, "h": 17, "fps": 15,\n  "rgb": "' +
+      hex(bytes, 27) + '<b>…</b>" }   <b>' + (459) + '</b> bytes';
+    wFrame.textContent = frameNo;
+    wCap.textContent = capture.length;
+    $("litTag").textContent = lit + " / 153 LIT";
+  }
+}
+
+/* ============================================================
+   4. SCORING — power x accuracy x timing
+   ============================================================ */
+let calib = 0.26;   // m/s per power point; set against a radar reading
+
+function bandOf(s){ return s >= 91 ? 4 : s >= 76 ? 3 : s >= 51 ? 2 : s >= 26 ? 1 : 0; }
+function styleOf(power, accuracy, score){
+  if (score >= 91) return "riot";
+  if (accuracy >= 82 && power >= 60) return "beam";
+  if (power - accuracy > 28 && power >= 65) return "scatter";
+  return "wave";
+}
+function scoreKick(raw){
+  const power = clamp(Math.round(raw.power), 0, 100);
+  const accuracy = clamp(Math.round(raw.accuracy), 0, 100);
+  const timingBonus = raw.timingMs == null ? 0 : Math.round(mapRange(raw.timingMs, 2400, 700, 0, 6));
+  const score = clamp(Math.round(power * 0.6 + accuracy * 0.4) + timingBonus, 0, 100);
+  return {
+    power, accuracy, score, timingMs: raw.timingMs, col: clamp(raw.col | 0, 0, COLS - 1),
+    speed: +(4 + power * calib).toFixed(1),
+    floors: Math.max(1, Math.round(score / 100 * STORIES)),
+    rows: Math.max(1, Math.round(score / 100 * ROWS)),
+    band: bandOf(score), style: styleOf(power, accuracy, score),
+    mode: raw.mode || "charge"
+  };
+}
+
+/* ============================================================
+   5. THE INTERPRETER — the building's personality
+   ============================================================ */
+const SAY = [
+  ["The building barely noticed.", "Two windows blinked. That was the whole event.",
+   "Somewhere on floor 3 a light flickered. Nobody looked up.", "That registered as weather."],
+  ["Okay. Something happened.", "Floors 2 through 7 are now aware of you.",
+   "The building has opened one eye.", "Half a tower's worth of shrug."],
+  ["Now we're talking.", "That climbed fourteen floors before it ran out.",
+   "The building is paying attention now.", "Pei designed this for wind loads. Not for that."],
+  ["The whole south face just turned around.", "That one carried all the way to the roof.",
+   "Cambridge saw that.", "Floor 18 felt it."],
+  ["WHO JUST KICKED THE GREEN BUILDING?", "All 153 windows. Every single one.",
+   "That is going straight in the hack gallery.", "The building would like a word with you."]
+];
+const MOODS = ["DORMANT", "STIRRING", "AWAKE", "LOUD", "RIOTING"];
+
+function interpret(K, hist){
+  const say = SAY[K.band][(Math.random() * SAY[K.band].length) | 0];
+  const notes = [];
+  const prev = hist.length > 1 ? hist[hist.length - 2] : null;
+
+  if (K.score > state.record && state.record > 0)
+    notes.push(`You beat the building. Today's record was ${state.record} and it is now yours.`);
+  else if (state.record - K.score <= 4 && state.record - K.score > 0)
+    notes.push(`${state.record - K.score} points off the building's record. It is right there.`);
+
+  if (K.power - K.accuracy > 28)
+    notes.push(`${K.power}% power, ${K.accuracy}% accuracy. You have the leg — the aim is still looking for the ball.`);
+  else if (K.accuracy - K.power > 28)
+    notes.push(`Surgical. ${K.accuracy}% accuracy. Now hit it like you mean it.`);
+  else if (K.score >= 76 && Math.abs(K.power - K.accuracy) < 12)
+    notes.push(`Perfect strike. ${K.power}% power and ${K.accuracy}% accuracy in the same kick.`);
+
+  if (!prev) notes.push("First contact. The building has nothing to compare you to yet.");
+  else if (K.score - prev.score >= 10) notes.push(`Up ${K.score - prev.score} on your last kick. Keep going.`);
+  else if (prev.score - K.score >= 15) notes.push(`Down ${prev.score - K.score} from your last. The building noticed.`);
+
+  if (hist.length >= 3 && hist.slice(-3).every(h => h.score >= 70))
+    notes.push("Three straight above 70. The building is getting nervous.");
+
+  notes.push(`Energy reached floor ${1 + K.floors} of ${STORIES}. ${K.rows * COLS > NWIN ? NWIN : K.rows * COLS} windows in the reaction.`);
+  return { say, note: notes.slice(0, 2).join(" ") };
+}
+
+/* ============================================================
+   6. STATE
+   ============================================================ */
+const dayKey = new Date().toISOString().slice(0, 10);
+function dailyRecord(key){
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++){ h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return 78 + (Math.abs(h) % 20);   // 78..97
+}
+const state = {
+  kicks: [], best: 0, record: dailyRecord(dayKey), recordBeaten: false,
+  name: (localStorage_get("kgb_name") || ""), board: [], mode: "arcade", room: null, db: null
+};
+function localStorage_get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function localStorage_set(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+
+/* ============================================================
+   7. UI WIRING
+   ============================================================ */
+const floorsEl = $("floors");
+for (let f = STORIES; f >= 1; f--){
+  const row = document.createElement("div");
+  row.className = "floorrow"; row.dataset.f = f;
+  row.innerHTML = '<span class="fn">' + String(f).padStart(2, "0") + '</span><span class="fb"></span>';
+  floorsEl.appendChild(row);
+}
+function paintFloors(n){
+  $("floorTag").textContent = n + " / " + STORIES;
+  for (const row of floorsEl.children){
+    const f = +row.dataset.f;
+    row.classList.toggle("on", f <= n);
+    row.classList.toggle("you", f === n);
+  }
+}
+function setBar(el, val, txt, valEl){ el.style.width = val + "%"; valEl.textContent = txt; }
+
+function renderKick(K, who){
+  $("kickNo").textContent = "KICK " + state.kicks.length + (who ? " · " + who : "");
+  $("rSpeed").innerHTML = K.speed.toFixed(1) + "<small>m/s</small>";
+  $("rCol").textContent = "C" + (K.col + 1);
+  $("rTime").innerHTML = K.timingMs == null ? "—" : K.timingMs + "<small>ms</small>";
+  setBar($("bPower"), K.power, K.power + "%", $("vPower"));
+  setBar($("bAcc"), K.accuracy, K.accuracy + "%", $("vAcc"));
+  setBar($("bScore"), K.score, String(K.score), $("vScore"));
+  const v = interpret(K, state.kicks);
+  const ve = $("verdict");
+  ve.dataset.band = K.band;
+  $("vSay").textContent = v.say;
+  $("vNote").textContent = v.note;
+  paintFloors(K.floors);
+  capture = []; capturing = true; wireTag.textContent = "● RECORDING";
+  playReaction(K);
+  if (aiOn) aiCommentary(K, who);
+}
+
+/* ---- optional: let Claude write the reaction instead of the rule engine ---- */
+let aiOn = false, aiSampler = null, aiBusy = false;
+const STYLES = ["flicker", "wave", "beam", "scatter", "riot"];
+$("aiChip").addEventListener("click", async () => {
+  if (!aiOn){
+    const s = await safeUse("sample");
+    if (!s){ $("aiChip").setAttribute("disabled", ""); $("aiChip").textContent = "AI unavailable"; return; }
+    aiSampler = s; aiOn = true;
+  } else { aiOn = false; }
+  $("aiChip").setAttribute("aria-pressed", String(aiOn));
+  $("aiChip").textContent = aiOn ? "AI commentary ON" : "AI commentary";
+});
+async function aiCommentary(K, who){
+  if (!aiSampler || aiBusy) return;
+  aiBusy = true;
+  const prior = state.kicks.slice(-4, -1).map(h => h.score).join(", ") || "none";
+  const tag = $("kickNo").textContent;
+  $("kickNo").textContent = tag + " · THINKING…";
+  try {
+    const out = await aiSampler.json(
+      "You are the MIT Green Building: 153 windows, 9 across and 17 up, 21 stories, concrete, I.M. Pei, " +
+      "a building that has been hacked into a display since 2012 and has opinions about it.\n" +
+      "Someone just kicked a ball at a target in front of you.\n" +
+      "power=" + K.power + "% accuracy=" + K.accuracy + "% score=" + K.score +
+      " est_ball_speed=" + K.speed + "m/s impact_column=" + (K.col + 1) + "/9 floors_lit=" + K.floors + "/21" +
+      " input=" + K.mode + " player=" + (who || nameOf()) + " their_previous_scores=[" + prior + "]" +
+      " todays_record_to_beat=" + state.record + "\n\n" +
+      "Reply with JSON only: {\"line\": string, \"style\": one of " + JSON.stringify(STYLES) + "}.\n" +
+      "line: your reaction, first person as the building, under 15 words, dry and specific, no emoji, no exclamation unless the score is above 90.\n" +
+      "style: the light pattern that fits this kick — flicker for weak, wave for ordinary, beam for accurate, scatter for powerful but wild, riot for above 90.",
+      { modelTier: "quick", cache: false }
+    );
+    if (out && typeof out.line === "string" && out.line.trim()){
+      $("vSay").textContent = out.line.trim().slice(0, 160);
+      $("verdict").dataset.band = K.band;
+    }
+    if (out && STYLES.indexOf(out.style) >= 0 && seq){
+      seq.K.style = out.style === "flicker" ? "wave" : out.style;
+      if (out.style === "flicker") seq.K.band = Math.min(seq.K.band, 1);
+    }
+  } catch(e){
+    if (e && e.code === "not_granted"){ aiOn = false; $("aiChip").setAttribute("aria-pressed", "false"); $("aiChip").textContent = "AI commentary"; }
+  } finally {
+    aiBusy = false;
+    $("kickNo").textContent = tag;
+  }
+}
+
+function submitKick(K, who, remote){
+  state.kicks.push(K);
+  if (K.score > state.best) state.best = K.score;
+  renderKick(K, who);
+  if (K.score > state.record){
+    state.record = K.score; state.recordBeaten = true;
+    $("record").classList.add("beaten");
+    $("recCap").innerHTML = "Building record<br>BEATEN BY " + (who || nameOf());
+    pushRecord(K.score, who || nameOf());
+  }
+  $("recNum").textContent = state.record;
+  addToBoard({ name: who || nameOf(), score: K.score, power: K.power, accuracy: K.accuracy, ts: Date.now(), day: dayKey, me: !remote });
+  if (!remote && state.room) state.room.emit("kick", { k: K, name: nameOf() }).catch(()=>{});
+}
+function nameOf(){
+  const v = ($("pname").value || "").trim().toUpperCase().slice(0, 10);
+  return v || "PLAYER";
+}
+$("pname").value = state.name;
+$("pname").addEventListener("change", () => {
+  state.name = nameOf(); localStorage_set("kgb_name", state.name); $("pname").value = state.name; announce();
+});
+
+/* ---------- leaderboard ---------- */
+function addToBoard(entry){
+  state.board.push(entry);
+  state.board.sort((a, b) => b.score - a.score);
+  state.board = state.board.slice(0, 12);
+  paintBoard();
+  if (state.db) state.db.collection("scores").add({
+    name: entry.name, score: entry.score, power: entry.power,
+    accuracy: entry.accuracy, day: entry.day, ts: entry.ts
+  }).catch(()=>{});
+}
+function paintBoard(){
+  const b = $("lbBody");
+  if (!state.board.length){
+    b.innerHTML = '<tr><td class="rk">—</td><td class="nm" style="color:var(--faint)">No kicks yet today</td><td class="sc"></td></tr>';
+    return;
+  }
+  const medal = ["1", "2", "3"];
+  b.innerHTML = state.board.slice(0, 8).map((e, i) =>
+    '<tr class="' + (e.me ? "me" : "") + '"><td class="rk">' + (medal[i] || (i + 1)) +
+    '</td><td class="nm">' + escapeHtml(e.name) + '</td><td class="sc">' + e.score + '</td></tr>').join("");
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+/* ============================================================
+   8. INPUT ADAPTERS
+   ============================================================ */
+const pad = $("pad"), meterFill = $("meterFill"), reticle = $("reticle");
+const padBig = $("padBig"), padSub = $("padSub"), stageTag = $("stageTag");
+let inputMode = "charge";
+let goAt = performance.now();
+
+const HINTS = {
+  charge: ["HOLD TO CHARGE", "Press and hold anywhere · release at peak power · then stop the reticle on target"],
+  flick:  ["FLICK TO KICK", "Swipe hard and straight across the pad · speed is power, straightness is accuracy"],
+  motion: ["SWING TO KICK", "Hold the phone and swing it like your leg · peak acceleration is power"]
+};
+function setInput(m){
+  inputMode = m; resetPad();
+  ["charge","flick","motion"].forEach(k => $("in-" + k).setAttribute("aria-pressed", String(k === m)));
+  padBig.textContent = HINTS[m][0]; padSub.textContent = HINTS[m][1];
+  if (m === "motion") startMotion();
+}
+["charge","flick","motion"].forEach(k => $("in-" + k).addEventListener("click", () => setInput(k)));
+
+function resetPad(){
+  pad.dataset.stage = "idle"; meterFill.style.width = "0%";
+  stageTag.textContent = "READY"; goAt = performance.now();
+  padBig.textContent = HINTS[inputMode][0]; padSub.textContent = HINTS[inputMode][1];
+  cancelAnimationFrame(padRaf); padRaf = 0;
+}
+$("resetBtn").addEventListener("click", () => {
+  state.kicks = []; state.best = 0; watermarkRow = 0; moodEnergy = 0;
+  paintFloors(0); resetPad();
+  $("vSay").textContent = "The building is asleep.";
+  $("vNote").textContent = "153 windows, 21 stories, and nothing to react to yet. Take a kick.";
+  $("kickNo").textContent = "KICK 0";
+  setBar($("bPower"), 0, "0%", $("vPower")); setBar($("bAcc"), 0, "0%", $("vAcc")); setBar($("bScore"), 0, "0", $("vScore"));
+});
+
+/* ---- charge meter (default; works on laptop + projector) ---- */
+let padRaf = 0, chargeT0 = 0, capturedPower = 0, aimT0 = 0, firstPressAt = null;
+function chargeLoop(now){
+  padRaf = requestAnimationFrame(chargeLoop);
+  const el = (now - chargeT0) / 1100;
+  const p = Math.abs(Math.sin(el * Math.PI)) * 100;
+  meterFill.style.width = p.toFixed(1) + "%";
+  meterFill.dataset.p = p;
+}
+function aimLoop(now){
+  padRaf = requestAnimationFrame(aimLoop);
+  const el = (now - aimT0) / 1450;
+  const x = (Math.sin(el * Math.PI * 2) * 0.5 + 0.5);
+  reticle.style.left = (6 + x * 88) + "%";
+  reticle.dataset.x = x;
+}
+function chargeDown(){
+  if (pad.dataset.stage !== "idle") return;
+  if (firstPressAt == null) firstPressAt = performance.now();
+  pad.dataset.stage = "charge"; stageTag.textContent = "CHARGING";
+  padBig.textContent = "RELEASE"; padSub.textContent = "let go at the top of the meter";
+  chargeT0 = performance.now(); chargeLoop(chargeT0);
+}
+function chargeUp(){
+  if (pad.dataset.stage !== "charge") return;
+  cancelAnimationFrame(padRaf);
+  capturedPower = +(meterFill.dataset.p || 0);
+  pad.dataset.stage = "aim"; stageTag.textContent = "AIM";
+  padBig.textContent = "TAP TO STRIKE"; padSub.textContent = "stop the reticle inside the target zone";
+  aimT0 = performance.now(); aimLoop(aimT0);
+}
+function aimStrike(){
+  if (pad.dataset.stage !== "aim") return;
+  cancelAnimationFrame(padRaf);
+  const x = +(reticle.dataset.x || 0.5);
+  const off = Math.abs(x - 0.5) * 2;                    // 0 centre .. 1 edge
+  const accuracy = clamp(100 - Math.pow(off, 1.35) * 108, 0, 100);
+  const col = clamp(Math.round(x * (COLS - 1)), 0, COLS - 1);
+  const timingMs = firstPressAt == null ? null : Math.round(firstPressAt - goAt);
+  firstPressAt = null;
+  fire({ power: capturedPower, accuracy, col, timingMs, mode: "charge" });
+  resetPad();
+}
+
+/* ---- flick (touch / mouse drag) ---- */
+let flick = null;
+function flickStart(e){
+  const pt = point(e); if (!pt) return;
+  flick = { t0: performance.now(), pts: [pt] };
+  if (firstPressAt == null) firstPressAt = performance.now();
+  pad.dataset.stage = "charge"; stageTag.textContent = "TRACKING";
+  padBig.textContent = "GO"; padSub.textContent = "keep it straight";
+}
+function flickMove(e){ if (flick){ const p = point(e); if (p) flick.pts.push(p); } }
+function flickEnd(){
+  if (!flick) return;
+  const pts = flick.pts, n = pts.length;
+  if (n < 3){ flick = null; resetPad(); return; }
+  const dur = Math.max(30, performance.now() - flick.t0);
+  const a = pts[0], b = pts[n - 1];
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+  const vel = len / dur;                                  // px per ms
+  const power = clamp(mapRange(vel, 0.35, 3.4, 4, 100), 0, 100);
+  // straightness: mean perpendicular deviation from the chord
+  let dev = 0;
+  for (const p of pts) dev += Math.abs((dy * (p.x - a.x) - dx * (p.y - a.y)) / (len || 1));
+  dev /= n;
+  const rect = pad.getBoundingClientRect();
+  const accuracy = clamp(100 - (dev / Math.max(24, rect.height * 0.16)) * 100, 0, 100);
+  const col = clamp(Math.round((b.x / Math.max(1, rect.width)) * (COLS - 1)), 0, COLS - 1);
+  const timingMs = firstPressAt == null ? null : Math.round(firstPressAt - goAt);
+  firstPressAt = null; flick = null;
+  fire({ power, accuracy, col, timingMs, mode: "flick" });
+  resetPad();
+}
+function point(e){
+  const r = pad.getBoundingClientRect();
+  const t = e.touches && e.touches[0] ? e.touches[0] : e;
+  if (t.clientX == null) return null;
+  return { x: t.clientX - r.left, y: t.clientY - r.top };
+}
+
+/* ---- phone swing (DeviceMotion) ---- */
+let motionOn = false, motionSamples = null, motionArmed = false, motionSeen = 0;
+async function startMotion(){
+  const DM = window.DeviceMotionEvent;
+  if (!DM){ motionFail("This browser has no motion sensor API."); return; }
+  try {
+    if (typeof DM.requestPermission === "function"){
+      const res = await DM.requestPermission();
+      if (res !== "granted"){ motionFail("Motion access was declined."); return; }
+    }
+  } catch(e){ motionFail("Motion access needs a direct tap on the phone."); return; }
+  window.addEventListener("devicemotion", onMotion, { passive: true });
+  motionOn = true; motionSeen = 0;
+  padBig.textContent = "SWING TO KICK";
+  padSub.textContent = "hold the phone, swing it like your leg — release nothing, just swing";
+  setTimeout(() => { if (motionSeen < 3) motionFail("No motion data arrived — this frame may not be allowed sensor access."); }, 1400);
+}
+function motionFail(msg){
+  $("in-motion").setAttribute("disabled", "");
+  $("in-motion").title = msg;
+  padSub.textContent = msg + " Falling back to flick.";
+  setInput("flick");
+}
+function onMotion(e){
+  motionSeen++;
+  const a = e.accelerationIncludingGravity || e.acceleration; if (!a) return;
+  const mag = Math.hypot(a.x || 0, a.y || 0, a.z || 0);
+  const excess = Math.abs(mag - 9.81);
+  const rr = e.rotationRate || {};
+  const spin = Math.hypot(rr.alpha || 0, rr.beta || 0, rr.gamma || 0);
+  if (!motionArmed && excess > 6){
+    motionArmed = true; motionSamples = { peak: 0, peakAxis: 0, spin: 0, t0: performance.now(), lat: 0 };
+    stageTag.textContent = "SWING"; padBig.textContent = "…";
+  }
+  if (motionArmed && motionSamples){
+    if (excess > motionSamples.peak){
+      motionSamples.peak = excess;
+      const dom = Math.max(Math.abs(a.x||0), Math.abs(a.y||0), Math.abs(a.z||0));
+      motionSamples.peakAxis = dom / (mag || 1);
+      motionSamples.lat = (a.x || 0);
+    }
+    motionSamples.spin = Math.max(motionSamples.spin, spin);
+    if (performance.now() - motionSamples.t0 > 700){
+      const m = motionSamples; motionArmed = false; motionSamples = null;
+      const power = clamp(mapRange(m.peak, 5, 46, 6, 100), 0, 100);
+      const straight = clamp(mapRange(m.peakAxis, 0.55, 0.97, 0, 100), 0, 100);
+      const spinPen = clamp(mapRange(m.spin, 120, 700, 0, 42), 0, 42);
+      const accuracy = clamp(straight - spinPen + 18, 0, 100);
+      const col = clamp(Math.round(mapRange(m.lat, -18, 18, 0, COLS - 1)), 0, COLS - 1);
+      fire({ power, accuracy, col, timingMs: null, mode: "motion" });
+      resetPad();
+    }
+  }
+}
+
+/* ---- pad event plumbing ---- */
+pad.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); pad.setPointerCapture && pad.setPointerCapture(e.pointerId);
+  if (inputMode === "charge"){ pad.dataset.stage === "aim" ? aimStrike() : chargeDown(); }
+  else if (inputMode === "flick") flickStart(e);
+});
+pad.addEventListener("pointermove", (e) => { if (inputMode === "flick") flickMove(e); });
+pad.addEventListener("pointerup", (e) => {
+  if (inputMode === "charge") chargeUp();
+  else if (inputMode === "flick") flickEnd();
+});
+pad.addEventListener("pointercancel", () => { if (inputMode === "flick"){ flick = null; resetPad(); } });
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat) return;
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+  e.preventDefault();
+  if (inputMode !== "charge") setInput("charge");
+  pad.dataset.stage === "aim" ? aimStrike() : chargeDown();
+});
+document.addEventListener("keyup", (e) => {
+  if (e.code !== "Space") return;
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+  if (inputMode === "charge") chargeUp();
+});
+
+function fire(raw){
+  const K = scoreKick(raw);
+  submitKick(K, null, false);
+}
+
+/* ---- calibration: tie 100% power to a real radar reading ---- */
+const calibIn = $("calibIn");
+function applyCalib(){
+  const n = parseFloat(calibIn.value);
+  if (!isFinite(n) || n < 8 || n > 60){ calibIn.value = (4 + 100 * calib).toFixed(0); return; }
+  calib = (n - 4) / 100;
+}
+calibIn.addEventListener("change", applyCalib);
+calibIn.value = (4 + 100 * calib).toFixed(0);
+
+/* ---- frame export ---- */
+$("clearCap").addEventListener("click", () => { capture = []; wCap.textContent = "0"; wireTag.textContent = "IDLE"; });
+$("dlFrames").addEventListener("click", async () => {
+  if (!capture.length){ wireTag.textContent = "NOTHING CAPTURED — KICK FIRST"; return; }
+  const header = '{"meta":"kick-the-green-building","target":"MIT Building 54 / d54","w":9,"h":17,"fps":15,"order":"row0=floor18","bytes_per_frame":459}';
+  const text = header + "\n" + capture.join("\n") + "\n";
+  const dl = await safeUse("downloads");
+  if (dl){
+    try {
+      const r = await dl.save({ filename: "kick-" + dayKey + "-" + Date.now() + ".ndjson", data: text });
+      wireTag.textContent = (r && r.status === "declined") ? "EXPORT DECLINED" : "EXPORTED · " + capture.length + " FRAMES";
+      return;
+    } catch(e){ /* fall through to the in-page view */ }
+  }
+  wireOut.textContent = text.slice(0, 4000) + (text.length > 4000 ? "\n… " + capture.length + " frames total" : "");
+  wireTag.textContent = "SHOWN INLINE (NO FILE SAVE HERE)";
+});
+
+/* ============================================================
+   9. MODES
+   ============================================================ */
+const MODE_HIDE = {
+  arcade:  [],
+  display: ["p-kick"],
+  phone:   ["p-facade", "p-floors", "p-wire", "p-join"]
+};
+function setMode(m){
+  state.mode = m;
+  ["arcade","display","phone"].forEach(k => $("m-" + k).setAttribute("aria-pressed", String(k === m)));
+  ["p-facade","p-floors","p-kick","p-verdict","p-record","p-lb","p-join","p-wire"].forEach(id => $(id).classList.remove("hidden"));
+  MODE_HIDE[m].forEach(id => $(id).classList.add("hidden"));
+  announce();
+  requestAnimationFrame(() => { sizeCanvas(); drawBuilding(); });
+}
+function announce(){
+  if (state.room) state.room.presence({ name: nameOf(), role: state.mode }).catch(()=>{});
+}
+["arcade","display","phone"].forEach(k => $("m-" + k).addEventListener("click", () => setMode(k)));
+
+/* ============================================================
+   10. RUNTIME CAPABILITIES — room, db, downloads
+   ============================================================ */
+async function safeUse(name){
+  try { return window.claude && claude.use ? await claude.use(name) : null; }
+  catch(e){ return null; }
+}
+function setRoomTag(on, n){
+  const t = $("roomTag");
+  t.innerHTML = '<span class="dot' + (on ? " on" : "") + '"></span>' + (on ? ("LIVE · " + n + " HERE") : "OFFLINE");
+}
+(async function connect(){
+  // ---- room: phones drive the building
+  const room = await safeUse("room");
+  if (room){
+    state.room = room;
+    setRoomTag(true, 1);
+    try {
+      room.on("kick", (msg) => {
+        const d = msg && msg.data; if (!d || !d.k) return;
+        if (state.mode === "phone") return;                // the phone already showed its own
+        const K = d.k;
+        state.kicks.push(K);
+        renderKick(K, (d.name || "GUEST").toUpperCase());
+        addToBoard({ name: (d.name || "GUEST").toUpperCase(), score: K.score, power: K.power, accuracy: K.accuracy, ts: Date.now(), day: dayKey, me: false });
+        if (K.score > state.record){ state.record = K.score; $("recNum").textContent = K.score; $("record").classList.add("beaten"); $("recCap").innerHTML = "Building record<br>BEATEN BY " + escapeHtml((d.name||"GUEST").toUpperCase()); }
+      });
+      room.onPeers((change) => {
+        const peers = (change && change.peers) || room.peers() || [];
+        const people = peers.filter(p => p.kind !== "agent");
+        setRoomTag(true, people.length);
+        const el = $("peers");
+        el.innerHTML = people.length
+          ? people.map(p => {
+              const pr = p.presence || {};
+              const nm = String(pr.name || "GUEST").slice(0, 12);
+              const ctl = pr.role === "phone";
+              return '<span class="peer' + (ctl ? " live" : "") + '">' + escapeHtml(nm) + (ctl ? " ⚽" : "") + '</span>';
+            }).join("")
+          : '<span class="peer">no controllers connected</span>';
+      });
+      announce();
+    } catch(e){}
+  }
+
+  // ---- db: leaderboard + today's building record
+  const db = await safeUse("db");
+  if (db){
+    state.db = db;
+    $("lbSrc").textContent = "SHARED";
+    try {
+      const doc = db.doc("challenge/" + dayKey);
+      const snap = await doc.get();
+      const d = snap && snap.data && snap.data();
+      if (d && typeof d.record === "number"){
+        state.record = Math.max(state.record, d.record);
+        if (d.holder){ $("record").classList.add("beaten"); $("recCap").innerHTML = "Building record<br>BEATEN BY " + escapeHtml(String(d.holder)); }
+      } else {
+        await doc.set({ record: state.record, holder: null, day: dayKey });
+      }
+      $("recNum").textContent = state.record;
+    } catch(e){}
+    try {
+      db.collection("scores").orderBy("score", "desc").limit(40).onSnapshot((qs) => {
+        const rows = [];
+        (qs.docs || []).forEach(s => { const v = s.data(); if (v && v.day === dayKey && typeof v.score === "number") rows.push(v); });
+        if (!rows.length) return;
+        const mine = new Set(state.board.filter(b => b.me).map(b => b.name + ":" + b.score));
+        state.board = rows.sort((a, b) => b.score - a.score).slice(0, 12)
+          .map(r => ({ name: String(r.name || "GUEST").slice(0, 12), score: r.score, me: mine.has((r.name || "") + ":" + r.score) }));
+        paintBoard();
+      }, () => {});
+    } catch(e){}
+  }
+})();
+
+function pushRecord(score, holder){
+  if (!state.db) return;
+  state.db.doc("challenge/" + dayKey).set({ record: score, holder: holder, day: dayKey }).catch(()=>{});
+}
+
+/* ============================================================
+   11. QR + BOOT
+   ============================================================ */
+(function makeQR(){
+  const host = $("qr");
+  let url = "";
+  try { url = String(window.location.href || ""); } catch(e){}
+  if (!/^https?:\/\//.test(url) || !window.QRCode){
+    host.style.background = "transparent";
+    host.style.padding = "0";
+    host.innerHTML = '<span style="font-family:var(--mono);font-size:9.5px;line-height:1.45;color:var(--faint);text-align:center;letter-spacing:.06em">OPEN THIS<br>ARTIFACT ON<br>YOUR PHONE</span>';
+    return;
+  }
+  try { new QRCode(host, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M }); }
+  catch(e){ host.innerHTML = ""; }
+})();
+
+$("dayTag").textContent = dayKey;
+$("recNum").textContent = state.record;
+paintFloors(0);
+paintBoard();
+sizeCanvas();
+setMode("arcade");
+requestAnimationFrame(tick);
+
+let rz;
+window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { sizeCanvas(); drawBuilding(); }, 120); });
+
+// mood decay + readout
+setInterval(() => {
+  moodEnergy = Math.max(0, moodEnergy - 0.28);
+  mood = clamp(Math.round(moodEnergy), 0, 4);
+  const mt = $("moodTag");
+  mt.textContent = MOODS[mood]; mt.dataset.m = mood;
+}, 900);
+
+})();
+</script>
+</body>
+</html>
