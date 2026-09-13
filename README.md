@@ -10,6 +10,8 @@ This repo contains a complete, playable simulation of that loop, plus the bridge
 
 Hosted on GitHub Pages from the root of the `main` branch. Updates pushed to `main` are published automatically.
 
+**GitHub Pages availability:** Standalone gameplay and the local leaderboard work here. The upstream AI commentary, live phone/display synchronization, and shared leaderboard require Claude runtime services that GitHub Pages does not provide. Frame export falls back to an inline preview. The upstream documentation below also references `docs/` and `bridge/` files that are not included in this repository.
+
 ---
 
 ## The display is real, and this is built to its spec
